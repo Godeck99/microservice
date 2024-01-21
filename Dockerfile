@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.11
+FROM python:3.11-slim
 
 # Set the working directory in the container to /app
 WORKDIR /app
@@ -8,7 +8,9 @@ WORKDIR /app
 ADD . /app
 
 # Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /root/.cache
 
 # Make port 80 available to the world outside this container
 EXPOSE 1611
