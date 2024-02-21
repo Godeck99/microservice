@@ -1,0 +1,65 @@
+from typing import List, Dict
+from datetime import datetime
+
+from fastapi import HTTPException
+from sqlmodel import select
+
+from utils.vcenter.vcenter_info import VCenterInfo
+from db.db_setup import Session
+from models.esxi import ESXi
+from utils.vcenter.vcenter_connection import VCenter
+
+
+def get_esxi_info(esx) -> Dict:
+    """Return a dictionary with information about the given ESXi host."""
+    hardware = esx.hardware.systemInfo
+    summary = esx.summary
+    return {
+        "name": summary.config.name,
+        "vendor": hardware.vendor,
+        "model": hardware.model,
+        "serial": hardware.serialNumber,
+        "version": summary.config.product.version + " " + summary.config.product.build,
+        "cluster": summary.host.parent.name,
+        "maintenance": summary.runtime.inMaintenanceMode,
+        "reboot_pending": summary.rebootRequired,
+        "status": summary.runtime.powerState
+    }
+
+
+def get_all_esxi(vcenter) -> List[Dict]:
+    """Return a list of dictionaries with information about all ESXi hosts in the given vCenter."""
+    vcenter_info = VCenterInfo(vcenter)
+    container_view = vcenter_info.create_container_view(VCenterInfo.VIEW_TYPE_ESXI)
+    return [get_esxi_info(esx) for esx in container_view.view]
+
+
+def fetch_esxi_from_vc(vcenter: str):
+    try:
+        vc_target = VCenter(hostname=vcenter, user="user", password="pass", port=8989, disable_ssl_verification=True)
+        return get_all_esxi(vc_target)
+    except ConnectionError as e:
+        raise HTTPException(status_code=401, detail=str(e))
+
+
+def update_or_create_esxi(session: Session, esxi_from_vcenter: list):
+    esxi_from_db = {esxi.name: esxi for esxi in session.exec(select(ESXi)).all()}
+    esxi_names_from_vcenter = {esxi_data["name"] for esxi_data in esxi_from_vcenter}
+
+    for esxi_data in esxi_from_vcenter:
+        esxi = esxi_from_db.get(esxi_data["name"])
+        if esxi:
+            esxi.updated_at = datetime.utcnow()
+            for key, value in esxi_data.items():
+                if getattr(esxi, key) != value:
+                    setattr(esxi, key, value)
+        else:
+            esxi = ESXi(**esxi_data)
+            session.add(esxi)
+
+    for esxi_name, esxi in esxi_from_db.items():
+        if esxi_name not in esxi_names_from_vcenter:
+            session.delete(esxi)
+            print("Deleted ESXi host from DB: ", esxi_name)
+
+    session.commit()
