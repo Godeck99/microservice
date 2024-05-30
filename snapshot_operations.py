@@ -42,7 +42,7 @@ def main():
     print("Trying to connect to VCENTER SERVER . . .")
     parser = cli.Parser()
     parser.add_optional_arguments(
-        cli.Argument.VM_UUID, cli.Argument.SNAPSHOT_OPERATION, cli.Argument.SNAPSHOT_NAME)
+        cli.Argument.UUID, cli.Argument.SNAPSHOT_OPERATION, cli.Argument.SNAPSHOT_NAME)
     args = parser.get_args()
     si = service_instance.connect(args)
 
@@ -50,7 +50,7 @@ def main():
 
     content = si.RetrieveContent()
 
-    vm = pchelper.get_obj(content, [vim.VirtualMachine], args.vm_uuid, 'uuid')
+    vm = pchelper.get_obj(content, [vim.VirtualMachine], args.uuid, 'uuid')
 
     if args.snapshot_operation != 'create' and vm.snapshot is None:
         print("Virtual Machine %s doesn't have any snapshots" % vm.name)
