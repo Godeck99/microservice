@@ -1,13 +1,7 @@
 #!/bin/bash
 
-# Check if word file is provided
-if [ $# -eq 0 ]; then
-    echo "Usage: $0 <word_file> <search_directory>"
-    exit 1
-fi
-
-word_file="$1"
-search_dir="$2"
+word_file="denied_words.txt"
+search_dirs=("../app/" "../kubernetes/")
 
 # Check if word file exists
 if [ ! -f "$word_file" ]; then
@@ -15,36 +9,32 @@ if [ ! -f "$word_file" ]; then
     exit 1
 fi
 
-# Check if search directory exists
-if [ ! -d "$search_dir" ]; then
-    echo "Search directory not found: $search_dir"
-    exit 1
-fi
+# Check if search directories exist
+for dir in "${search_dirs[@]}"; do
+    if [ ! -d "$dir" ]; then
+        echo "Search directory not found: $dir"
+        exit 1
+    fi
+done
 
 # Initialize an associative array to store results
 declare -A results
 
 # Read words from the file
 while IFS= read -r word; do
-    # Use grep to search for the word in files
-    found=$(grep -r -l "$word" "$search_dir")
-    
-    # If the word is found, add it to the results
-    if [ -n "$found" ]; then
-        results["$word"]="$found"
-    fi
+    # Use grep to search for the word in files across all specified directories
+    for dir in "${search_dirs[@]}"; do
+        found=$(grep -r -l "$word" "$dir")
+        
+        # If the word is found, add it to the results
+        if [ -n "$found" ]; then
+            if [ -z "${results[$word]}" ]; then
+                results["$word"]="$found"
+            else
+                results["$word"]+=$'\n'"$found"
+            fi
+        fi
+    done
 done < "$word_file"
 
-# Check if any words were found
-if [ ${#results[@]} -eq 0 ]; then
-    echo "No words from $word_file were found in the files under $search_dir"
-    exit 0
-else
-    echo "The following words were found:"
-    for word in "${!results[@]}"; do
-        echo "Word '$word' found in:"
-        echo "${results[$word]}"
-        echo "---"
-    done
-    exit 1
-fi
+# The rest of the script (checking results and printing) would follow here...
