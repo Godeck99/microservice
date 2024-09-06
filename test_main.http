@@ -37,4 +37,16 @@ while IFS= read -r word; do
     done
 done < "$word_file"
 
-# The rest of the script (checking results and printing) would follow here...
+# Check if any words were found
+if [ ${#results[@]} -eq 0 ]; then
+    echo "No words from $word_file were found in the specified directories"
+    exit 0
+else
+    echo "The following denied words were found:"
+    for word in "${!results[@]}"; do
+        echo "Word '$word' found in:"
+        echo "${results[$word]}"
+        echo "---"
+    done
+    exit 1
+fi
